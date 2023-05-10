@@ -9,8 +9,6 @@ args = parser.parse_args()
 cv2.namedWindow('Video sequence',cv2.WINDOW_NORMAL)
 
 cap=cv2.VideoCapture(args.video_file)
-frame_rate = cap.get(cv2.CAP_PROP_FPS)
-print(frame_rate)
 
 while(cap.isOpened()):
 
