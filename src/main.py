@@ -6,10 +6,12 @@ import time
 
 start_time = time.time()
 
-top_left_pt=None
-bottom_right_pt=None
+rectangles=[]
 
-def draw_rectangle(event,x,y,flags,params):
+top_left_pt=None
+bottom_right_pt=None    
+
+def get_rectangle(event,x,y,flags,params):
     global x_init, y_init, drawing, top_left_pt, bottom_right_pt
     
     # Check if the left mouse button was pressed
@@ -31,8 +33,7 @@ def draw_rectangle(event,x,y,flags,params):
         top_left_pt = (min(x_init, x), min(y_init, y))
         bottom_right_pt = (max(x_init, x), max(y_init, y))
         cv2.rectangle(frame, top_left_pt, bottom_right_pt, color=(0, 255, 0), thickness=2)
-
-
+        rectangles.append((x_init, y_init, x, y))
 
 def apply_gaussian_filter(frame):
     # Apply a Gaussian filter with a kernel size of 5x5 and sigma value of 1
@@ -44,7 +45,7 @@ parser.add_argument('--video_file', type=str, default='camera', help='Video file
 args = parser.parse_args()
 
 cv2.namedWindow('Video sequence',cv2.WINDOW_NORMAL)
-cv2.setMouseCallback('Video sequence', draw_rectangle)
+cv2.setMouseCallback('Video sequence', get_rectangle)
 
 num_processes = cpu_count()
 pool = Pool(num_processes)
@@ -63,11 +64,9 @@ while(cap.isOpened()):
 
     filtered_frame = pool.apply_async(apply_gaussian_filter, [frame])
 
-    if top_left_pt and bottom_right_pt:
-        # Draw the rectangle on the current frame
-        cv2.rectangle(frame, top_left_pt, bottom_right_pt, color=(0, 255, 0), thickness=2)
-
-
+    for rect in rectangles:
+        cv2.rectangle(frame, (rect[0], rect[1]), (rect[2], rect[3]), color=(0, 255, 0), thickness=2)
+    
     # Display the filtered frame
     cv2.imshow('Filtered Frame', filtered_frame.get())
 
