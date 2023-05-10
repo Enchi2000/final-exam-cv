@@ -2,10 +2,13 @@ import numpy as np
 import cv2
 import argparse
 from multiprocessing import Pool, cpu_count
+import time
+
+start_time = time.time()
 
 def apply_gaussian_filter(frame):
-    # Apply a Gaussian filter with a kernel size of 5x5 and sigma value of 0
-    filtered_frame = cv2.GaussianBlur(frame, (5, 5), 0)
+    # Apply a Gaussian filter with a kernel size of 5x5 and sigma value of 1
+    filtered_frame = cv2.GaussianBlur(frame, (5, 5), 1)
     return filtered_frame
 
 parser = argparse.ArgumentParser(description='Vision-based object detection')
@@ -48,5 +51,11 @@ cv2.destroyAllWindows()
 
 # Destroy 'VideoCapture' object
 cap.release()
+
+end_time = time.time()
+
+total_time = end_time - start_time
+print(f'Total time taken: {total_time:.2f} seconds')
+
     
 
