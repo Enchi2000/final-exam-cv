@@ -3,13 +3,29 @@ import cv2
 import argparse
 from multiprocessing import Pool, cpu_count
 import time
+import matplotlib.pyplot as plt
 
 start_time = time.time()
 
 rectangles=[]
+plt.ion()
+
 
 top_left_pt=None
-bottom_right_pt=None    
+bottom_right_pt=None   
+
+def plot_histogram(Xinit,Yinit,Xfin,Yfin):
+    roi=channels[0][Xinit:Xfin,Yinit:Yfin]
+    hist = cv2.calcHist([roi], [0], None, [256], [0, 256])
+    plt.clf()
+    plt.plot(hist)
+    plt.xlim([0, 256])
+    plt.ylim([0, np.max(hist)])
+    plt.title('Histogram')
+    plt.xlabel('Pixel Value')
+    plt.ylabel('Frequency')
+    plt.draw()
+    plt.pause(0.01)
 
 def get_rectangle(event,x,y,flags,params):
     global x_init, y_init, drawing, top_left_pt, bottom_right_pt
@@ -30,10 +46,10 @@ def get_rectangle(event,x,y,flags,params):
     # Check if the left mouse button was released
     elif event == cv2.EVENT_LBUTTONUP:
         drawing = False
-        top_left_pt = (min(x_init, x), min(y_init, y))
-        bottom_right_pt = (max(x_init, x), max(y_init, y))
-        cv2.rectangle(frame, top_left_pt, bottom_right_pt, color=(0, 255, 0), thickness=2)
         rectangles.append((x_init, y_init, x, y))
+        fig=plt.figure()
+        
+
 
 def apply_gaussian_filter(frame):
     # Apply a Gaussian filter with a kernel size of 5x5 and sigma value of 1
@@ -61,14 +77,18 @@ while(cap.isOpened()):
     if not ret:
         print("frame missed!")
         break
-
+    
+    channels=cv2.split(frame)
     filtered_frame = pool.apply_async(apply_gaussian_filter, [frame])
 
     for rect in rectangles:
         cv2.rectangle(frame, (rect[0], rect[1]), (rect[2], rect[3]), color=(0, 255, 0), thickness=2)
+        plot_histogram(rect[0], rect[1], rect[2], rect[3])
     
+        
+
     # Display the filtered frame
-    cv2.imshow('Filtered Frame', filtered_frame.get())
+    #cv2.imshow('Filtered Frame', filtered_frame.get())
 
     # Visualise the input video
     cv2.imshow('Video sequence',frame)
