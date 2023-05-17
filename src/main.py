@@ -80,12 +80,18 @@ while(cap.isOpened()):
     if not ret:
         print("frame missed!")
         break
-    filtered_frame = pool.apply_async(apply_gaussian_filter, [frame])
+    # filtered_frame = pool.apply_async(apply_gaussian_filter, [frame])
     filtered_frame=pool.apply_async(apply_median_filter,[frame])
     HSV_FRAME=cv2.cvtColor(filtered_frame.get(),cv2.COLOR_BGR2HSV)
-    channels=cv2.split(HSV_FRAME)
+    channels=cv2.split(filtered_frame.get())
+    result=cv2.inRange(HSV_FRAME,(38,27.8,168),(59,64,220))
+    result1=cv2.inRange(filtered_frame.get(),(103,149,117),(155,192,178))
+    #(11,14,6.2)(34,31,23)
+    #(210,210,216)(235,235,240)
+    final=cv2.bitwise_or(result,result1)
 
-    result=cv2.inRange(HSV_FRAME,(39,27.8,168),(59,64,220))
+
+    final=cv2.bitwise_and(frame,frame,mask=final)
 
     for rect in rectangles:
         cv2.rectangle(frame, (rect[0], rect[1]), (rect[2], rect[3]), color=(0, 255, 0), thickness=2)
@@ -96,12 +102,13 @@ while(cap.isOpened()):
 
     
     # Display the filtered frame
-    cv2.imshow('Filtered Frame', filtered_frame.get())
 
     # Visualise the input video
     cv2.imshow('Video sequence',frame)
+    cv2.imshow('Filtered Frame',filtered_frame.get())
+    cv2.imshow('Result',result1)
+    cv2.imshow('final',final)
 
-    cv2.imshow('Result',result)
 
     # The program finishes if the key 'q' is pressed
     key = cv2.waitKey(1)
@@ -122,7 +129,7 @@ plt.xlim([0, 256])
 plt.title('Histogram')
 plt.xlabel('Pixel Value')
 plt.ylabel('Frequency')
-plt.legend(['H','S','V'])
+plt.legend(['B','G','R'])
 plt.show()
 
 end_time = time.time()
