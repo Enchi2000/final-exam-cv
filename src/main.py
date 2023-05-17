@@ -26,7 +26,6 @@ def plot_histogram(Xinit,Yinit,Xfin,Yfin):
     hist_b=pool.apply_async(histogram_calculation,(roi_b,))
     hist_g = pool.apply_async(histogram_calculation,(roi_g,))
     hist_r = pool.apply_async(histogram_calculation,(roi_r,))
-
     return hist_b.get(),hist_g.get(),hist_r.get()
 
 def get_rectangle(event,x,y,flags,params):
@@ -56,6 +55,10 @@ def apply_gaussian_filter(frame):
     filtered_frame = cv2.GaussianBlur(frame, (5, 5), 1)
     return filtered_frame
 
+def apply_median_filter(frame):
+    filtered_frame=cv2.medianBlur(frame,5)
+    return filtered_frame
+
 parser = argparse.ArgumentParser(description='Vision-based object detection')
 parser.add_argument('--video_file', type=str, default='camera', help='Video file used for the object detection process')
 args = parser.parse_args()
@@ -78,8 +81,11 @@ while(cap.isOpened()):
         print("frame missed!")
         break
     filtered_frame = pool.apply_async(apply_gaussian_filter, [frame])
+    filtered_frame=pool.apply_async(apply_median_filter,[frame])
     HSV_FRAME=cv2.cvtColor(filtered_frame.get(),cv2.COLOR_BGR2HSV)
     channels=cv2.split(HSV_FRAME)
+
+    result=cv2.inRange(HSV_FRAME,(39,27.8,168),(59,64,220))
 
     for rect in rectangles:
         cv2.rectangle(frame, (rect[0], rect[1]), (rect[2], rect[3]), color=(0, 255, 0), thickness=2)
@@ -95,8 +101,10 @@ while(cap.isOpened()):
     # Visualise the input video
     cv2.imshow('Video sequence',frame)
 
+    cv2.imshow('Result',result)
+
     # The program finishes if the key 'q' is pressed
-    key = cv2.waitKey(31)
+    key = cv2.waitKey(1)
     if key == ord('q') or key == 27:
         print("Programm finished, mate!")
         break
