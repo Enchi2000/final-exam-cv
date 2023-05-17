@@ -5,6 +5,8 @@ from multiprocessing import Pool, cpu_count
 import time
 import matplotlib.pyplot as plt
 
+"hola"
+
 start_time = time.time()
 
 h_b_Accumulator = np.zeros((256, 1), dtype=np.float32)
