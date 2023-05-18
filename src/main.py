@@ -17,7 +17,7 @@ bottom_right_pt=None
 
 
 def plot_histogram(Xinit,Yinit,Xfin,Yfin):
-    roi=LAB_FRAME[Yinit:Yfin,Xinit:Xfin]
+    roi=HSV_FRAME[Yinit:Yfin,Xinit:Xfin]
     hist_r=cv2.calcHist([roi], [0], None, [256], [0, 256])
     hist_g = cv2.calcHist([roi], [1], None, [256], [0, 256])
     hist_b = cv2.calcHist([roi], [2], None, [256], [0, 256])
@@ -78,6 +78,7 @@ while(cap.isOpened()):
     filtered_frame=pool.apply_async(apply_gaussian_filter,[frame])
     RGB_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
     HSV_FRAME=cv2.cvtColor(filtered_frame.get(),cv2.COLOR_BGR2HSV_FULL)
+    HSV_UNFILTERED=cv2.cvtColor(frame,cv2.COLOR_BGR2HSV_FULL)
     HLS_FRAME=cv2.cvtColor(filtered_frame.get(),cv2.COLOR_BGR2HLS_FULL)
     LUV_FRAME=cv2.cvtColor(filtered_frame.get(),cv2.COLOR_BGR2LUV)
     LAB_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2LAB)
@@ -90,7 +91,7 @@ while(cap.isOpened()):
     LUV_SOMBRAS_MENORES=cv2.inRange(LUV_FRAME,(67,84,147),(131,90,160))
     LUV_SOMBRAS_MENORES2=cv2.inRange(LUV_FRAME,(120,86.7,151),(160,93,161))
 
-    RGB_LINEA_ROJA=cv2.inRange(RGB_FRAME,(169,166,147),(221,210,178))
+    RGB_LINEA_ROJA=cv2.inRange(HSV_FRAME,(30,32,171),(51,45,197))
 
     LINEAS_BLANCAS=cv2.inRange(LAB_FRAME,(214,113,131),(255,125,142))
 
@@ -128,7 +129,7 @@ while(cap.isOpened()):
     cv2.imshow('final',final)
     cv2.imshow('mask',mask)
     cv2.imshow('LINEAROJA',RGB_LINEA_ROJA)
-    cv2.imshow('HSV',HSV_FRAME)
+    cv2.imshow('HSV',HSV_UNFILTERED)
     cv2.imshow('HLS',HLS_FRAME)
     cv2.imshow('LUV',LUV_FRAME)
     cv2.imshow('LAB',LAB_FRAME) 
@@ -154,7 +155,7 @@ plt.xlim([0, 256])
 plt.title('Histogram')
 plt.xlabel('Pixel Value')
 plt.ylabel('Frequency')
-plt.legend(['L','A','B'])
+plt.legend(['H','S','V'])
 plt.show()
 
 end_time = time.time()
