@@ -15,18 +15,13 @@ drawing=False
 top_left_pt=None
 bottom_right_pt=None   
 
-def histogram_calculation(input):
-    hist=cv2.calcHist([input], [0], None, [256], [0, 256])
-    return hist
 
 def plot_histogram(Xinit,Yinit,Xfin,Yfin):
-    roi_b=channels[0][Xinit:Xfin,Yinit:Yfin]
-    roi_g=channels[1][Xinit:Xfin,Yinit:Yfin]
-    roi_r=channels[2][Xinit:Xfin,Yinit:Yfin]
-    hist_b=pool.apply_async(histogram_calculation,(roi_b,))
-    hist_g = pool.apply_async(histogram_calculation,(roi_g,))
-    hist_r = pool.apply_async(histogram_calculation,(roi_r,))
-    return hist_b.get(),hist_g.get(),hist_r.get()
+    roi=RGB_FRAME[Yinit:Yfin,Xinit:Xfin]
+    hist_r=cv2.calcHist([roi], [0], None, [256], [0, 256])
+    hist_g = cv2.calcHist([roi], [1], None, [256], [0, 256])
+    hist_b = cv2.calcHist([roi], [2], None, [256], [0, 256])
+    return hist_r,hist_g,hist_b
 
 def get_rectangle(event,x,y,flags,params):
     global x_init, y_init, drawing, top_left_pt, bottom_right_pt
@@ -48,8 +43,6 @@ def get_rectangle(event,x,y,flags,params):
         drawing = False
         rectangles.append((x_init, y_init, x, y)) 
         
-    
-
 def apply_gaussian_filter(frame):
     # Apply a Gaussian filter with a kernel size of 5x5 and sigma value of 1
     filtered_frame = cv2.GaussianBlur(frame, (5, 5), 1)
@@ -64,7 +57,6 @@ parser.add_argument('--video_file', type=str, default='camera', help='Video file
 args = parser.parse_args()
 
 cv2.namedWindow('Video sequence',cv2.WINDOW_NORMAL)
-cv2.namedWindow('Filtered Frame',cv2.WINDOW_NORMAL)
 cv2.setMouseCallback('Video sequence', get_rectangle)
 
 num_processes = cpu_count()
@@ -81,35 +73,29 @@ while(cap.isOpened()):
         print("frame missed!")
         break
     # filtered_frame = pool.apply_async(apply_gaussian_filter, [frame])
-    filtered_frame=pool.apply_async(apply_median_filter,[frame])
-    HSV_FRAME=cv2.cvtColor(filtered_frame.get(),cv2.COLOR_BGR2HSV)
-    channels=cv2.split(filtered_frame.get())
-    result=cv2.inRange(HSV_FRAME,(38,27.8,168),(59,64,220))
-    result1=cv2.inRange(filtered_frame.get(),(103,149,117),(155,192,178))
-    #(11,14,6.2)(34,31,23)
-    #(210,210,216)(235,235,240)
+    #filtered_frame=pool.apply_async(apply_median_filter,[frame])
+    HSV_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2HSV)
+    RGB_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+    result=cv2.inRange(RGB_FRAME,(112,141,100),(154,180,141)) #Noise1
+    result1=cv2.inRange(RGB_FRAME,(5.7,10,8.3),(40,56,44)) #Shadow
+    result2=cv2.inRange(RGB_FRAME,(120,160,132),(205,220,192)) #Rest of green area
+
     final=cv2.bitwise_or(result,result1)
-
-
-    final=cv2.bitwise_and(frame,frame,mask=final)
+    final=cv2.bitwise_or(final,result2)
 
     for rect in rectangles:
         cv2.rectangle(frame, (rect[0], rect[1]), (rect[2], rect[3]), color=(0, 255, 0), thickness=2)
-        h_b,h_g,h_r=plot_histogram(rect[0], rect[1], rect[2], rect[3])
-        h_b_Accumulator=h_b_Accumulator+h_b
-        h_g_Accumulator=h_g_Accumulator+h_g
+        h_r,h_g,h_b=plot_histogram(rect[0], rect[1], rect[2], rect[3])
         h_r_Accumulator=h_r_Accumulator+h_r
+        h_g_Accumulator=h_g_Accumulator+h_g
+        h_b_Accumulator=h_b_Accumulator+h_b
 
-    
-    # Display the filtered frame
+
 
     # Visualise the input video
     cv2.imshow('Video sequence',frame)
-    cv2.imshow('Filtered Frame',filtered_frame.get())
-    cv2.imshow('Result',result1)
+    cv2.imshow('result2',result2)
     cv2.imshow('final',final)
-
-
     # The program finishes if the key 'q' is pressed
     key = cv2.waitKey(1)
     if key == ord('q') or key == 27:
@@ -122,14 +108,14 @@ cv2.destroyAllWindows()
 # Destroy 'VideoCapture' object
 cap.release()
 plt.figure(num=1)
-plt.plot(h_b_Accumulator,color='blue')
+plt.plot(h_r_Accumulator,color='red')
 plt.plot(h_g_Accumulator,color='green')
-plt.plot(h_r_Accumulator,color='red') 
+plt.plot(h_b_Accumulator,color='blue') 
 plt.xlim([0, 256])
 plt.title('Histogram')
 plt.xlabel('Pixel Value')
 plt.ylabel('Frequency')
-plt.legend(['B','G','R'])
+plt.legend(['R','G','B'])
 plt.show()
 
 end_time = time.time()
