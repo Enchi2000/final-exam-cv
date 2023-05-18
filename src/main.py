@@ -17,7 +17,7 @@ bottom_right_pt=None
 
 
 def plot_histogram(Xinit,Yinit,Xfin,Yfin):
-    roi=RGB_FRAME[Yinit:Yfin,Xinit:Xfin]
+    roi=LAB_FRAME[Yinit:Yfin,Xinit:Xfin]
     hist_r=cv2.calcHist([roi], [0], None, [256], [0, 256])
     hist_g = cv2.calcHist([roi], [1], None, [256], [0, 256])
     hist_b = cv2.calcHist([roi], [2], None, [256], [0, 256])
@@ -35,7 +35,7 @@ def get_rectangle(event,x,y,flags,params):
     elif event == cv2.EVENT_MOUSEMOVE and drawing:
         top_left_pt = (min(x_init, x), min(y_init, y))
         bottom_right_pt = (max(x_init, x), max(y_init, y))
-        cv2.rectangle(frame, top_left_pt, bottom_right_pt, color=(0, 255, 0), thickness=2)
+        cv2.rectangle(frame, top_left_pt, bottom_right_pt, color=(0, 255, 0), thickness=1)
         cv2.imshow('Video sequence', frame)
         
     # Check if the left mouse button was released
@@ -45,7 +45,7 @@ def get_rectangle(event,x,y,flags,params):
         
 def apply_gaussian_filter(frame):
     # Apply a Gaussian filter with a kernel size of 5x5 and sigma value of 1
-    filtered_frame = cv2.GaussianBlur(frame, (5, 5), 1)
+    filtered_frame = cv2.GaussianBlur(frame, (7, 7), 5)
     return filtered_frame
 
 def apply_median_filter(frame):
@@ -75,21 +75,32 @@ while(cap.isOpened()):
         print("frame missed!")
         break
 
- 
+    filtered_frame=pool.apply_async(apply_gaussian_filter,[frame])
     RGB_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
-    HSV_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2HSV_FULL)
-    filtered_HSV=pool.apply_async(apply_gaussian_filter,[HSV_FRAME])
+    HSV_FRAME=cv2.cvtColor(filtered_frame.get(),cv2.COLOR_BGR2HSV_FULL)
+    HLS_FRAME=cv2.cvtColor(filtered_frame.get(),cv2.COLOR_BGR2HLS_FULL)
+    LUV_FRAME=cv2.cvtColor(filtered_frame.get(),cv2.COLOR_BGR2LUV)
+    LAB_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2LAB)
+    GRAY_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGRA2GRAY)
+
+
 
     result=cv2.inRange(RGB_FRAME,(112,141,100),(154,180,141)) #Noise1q
-    result1=cv2.inRange(RGB_FRAME,(2.1,10,8.3),(80,90,93)) #Shadow
-    result2=cv2.inRange(filtered_HSV.get(),(52,28,159),(79,69,226)) #Green area
+    LUV_SOMBRAS=cv2.inRange(LUV_FRAME,(10,84,121),(49,99,163))
+    LUV_SOMBRAS_MENORES=cv2.inRange(LUV_FRAME,(67,84,147),(131,90,160))
+    LUV_SOMBRAS_MENORES2=cv2.inRange(LUV_FRAME,(120,86.7,151),(160,93,161))
 
-    PRUEBA_RGB=cv2.inRange(RGB_FRAME,(182,220,190),(255,255,255))
+    RGB_LINEA_ROJA=cv2.inRange(RGB_FRAME,(169,166,147),(221,210,178))
 
+    LINEAS_BLANCAS=cv2.inRange(LAB_FRAME,(214,113,131),(255,125,142))
 
-    final=cv2.bitwise_or(result,result1)
+    result1=cv2.bitwise_or(LUV_SOMBRAS_MENORES2,LUV_SOMBRAS_MENORES)
+    result2=cv2.inRange(HSV_FRAME,(52,28,159),(79,69,226)) #Green area
+
+    final=cv2.bitwise_or(result,LUV_SOMBRAS)
     mask=cv2.bitwise_or(final,result2)
-    mask=cv2.bitwise_or(mask,PRUEBA_RGB)
+    mask=cv2.bitwise_or(mask,result1)
+    mask=cv2.bitwise_or(mask,LINEAS_BLANCAS)
 
     contours,hierarchy  = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -101,11 +112,11 @@ while(cap.isOpened()):
             x, y, w, h = cv2.boundingRect(contour)
             detected_objects.append((x, y, w, h))
 
-    for x, y, w, h in detected_objects:
-        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1)
+    #for x, y, w, h in detected_objects:
+    #    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1)
 
     for rect in rectangles:
-        cv2.rectangle(frame, (rect[0], rect[1]), (rect[2], rect[3]), color=(0, 255, 0), thickness=2)
+        cv2.rectangle(frame, (rect[0], rect[1]), (rect[2], rect[3]), color=(0, 255, 0), thickness=1)
         h_r,h_g,h_b=plot_histogram(rect[0], rect[1], rect[2], rect[3])
         h_r_Accumulator=h_r_Accumulator+h_r
         h_g_Accumulator=h_g_Accumulator+h_g
@@ -116,7 +127,12 @@ while(cap.isOpened()):
     cv2.imshow('Video sequence',frame)
     cv2.imshow('final',final)
     cv2.imshow('mask',mask)
-    cv2.imshow('HSV',result2)
+    cv2.imshow('LINEAROJA',RGB_LINEA_ROJA)
+    cv2.imshow('HSV',HSV_FRAME)
+    cv2.imshow('HLS',HLS_FRAME)
+    cv2.imshow('LUV',LUV_FRAME)
+    cv2.imshow('LAB',LAB_FRAME) 
+    cv2.imshow('LINEAS_BLANCAS',LINEAS_BLANCAS)
 
 
     # The program finishes if the key 'q' is pressed
@@ -138,7 +154,7 @@ plt.xlim([0, 256])
 plt.title('Histogram')
 plt.xlabel('Pixel Value')
 plt.ylabel('Frequency')
-plt.legend(['r','g','b'])
+plt.legend(['L','A','B'])
 plt.show()
 
 end_time = time.time()
