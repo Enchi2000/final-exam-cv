@@ -49,8 +49,9 @@ def apply_gaussian_filter(frame):
     return filtered_frame
 
 def apply_median_filter(frame):
-    filtered_frame=cv2.medianBlur(frame,5)
+    filtered_frame=cv2.medianBlur(frame,3)
     return filtered_frame
+
 
 parser = argparse.ArgumentParser(description='Vision-based object detection')
 parser.add_argument('--video_file', type=str, default='camera', help='Video file used for the object detection process')
@@ -63,6 +64,7 @@ num_processes = cpu_count()
 pool = Pool(num_processes)
 cap=cv2.VideoCapture(args.video_file)
 
+
 while(cap.isOpened()):
 
     #Got the current frame and pass on to 'frame'
@@ -72,16 +74,35 @@ while(cap.isOpened()):
     if not ret:
         print("frame missed!")
         break
-    # filtered_frame = pool.apply_async(apply_gaussian_filter, [frame])
-    #filtered_frame=pool.apply_async(apply_median_filter,[frame])
-    HSV_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2HSV)
+
+ 
     RGB_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
-    result=cv2.inRange(RGB_FRAME,(112,141,100),(154,180,141)) #Noise1
-    result1=cv2.inRange(RGB_FRAME,(5.7,10,8.3),(40,56,44)) #Shadow
-    result2=cv2.inRange(RGB_FRAME,(120,160,132),(205,220,192)) #Rest of green area
+    HSV_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2HSV_FULL)
+    filtered_HSV=pool.apply_async(apply_gaussian_filter,[HSV_FRAME])
+
+    result=cv2.inRange(RGB_FRAME,(112,141,100),(154,180,141)) #Noise1q
+    result1=cv2.inRange(RGB_FRAME,(2.1,10,8.3),(80,90,93)) #Shadow
+    result2=cv2.inRange(filtered_HSV.get(),(52,28,159),(79,69,226)) #Green area
+
+    PRUEBA_RGB=cv2.inRange(RGB_FRAME,(182,220,190),(255,255,255))
+
 
     final=cv2.bitwise_or(result,result1)
-    final=cv2.bitwise_or(final,result2)
+    mask=cv2.bitwise_or(final,result2)
+    mask=cv2.bitwise_or(mask,PRUEBA_RGB)
+
+    contours,hierarchy  = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    final=cv2.bitwise_and(frame,frame,mask=mask)
+    detected_objects = []
+    for contour in contours:
+        area=cv2.contourArea(contour)
+        if area<70 and area>20:
+            x, y, w, h = cv2.boundingRect(contour)
+            detected_objects.append((x, y, w, h))
+
+    for x, y, w, h in detected_objects:
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1)
 
     for rect in rectangles:
         cv2.rectangle(frame, (rect[0], rect[1]), (rect[2], rect[3]), color=(0, 255, 0), thickness=2)
@@ -91,11 +112,13 @@ while(cap.isOpened()):
         h_b_Accumulator=h_b_Accumulator+h_b
 
 
-
     # Visualise the input video
     cv2.imshow('Video sequence',frame)
-    cv2.imshow('result2',result2)
     cv2.imshow('final',final)
+    cv2.imshow('mask',mask)
+    cv2.imshow('HSV',result2)
+
+
     # The program finishes if the key 'q' is pressed
     key = cv2.waitKey(1)
     if key == ord('q') or key == 27:
@@ -115,7 +138,7 @@ plt.xlim([0, 256])
 plt.title('Histogram')
 plt.xlabel('Pixel Value')
 plt.ylabel('Frequency')
-plt.legend(['R','G','B'])
+plt.legend(['r','g','b'])
 plt.show()
 
 end_time = time.time()
