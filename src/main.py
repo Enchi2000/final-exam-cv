@@ -1,3 +1,11 @@
+# ----------------------------------------------------------------
+
+# copy line to run:
+#    'python main.py --video_file  ../../2023_05_05_14_59_37-ball-detection.mp4'
+# ----------------------------------------------------------------
+
+
+
 import numpy as np
 import cv2
 import argparse
