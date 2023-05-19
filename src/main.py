@@ -2,6 +2,8 @@
 # 
 # copy line to run:
 #    'python main.py --video_file  ../../2023_05_05_14_59_37-ball-detection.mp4'
+
+#  link video: 
 # ----------------------------------------------------------------
 
 import numpy as np
@@ -11,7 +13,9 @@ from multiprocessing import Pool, cpu_count
 import time
 import matplotlib.pyplot as plt
 
-
+x_list=list()
+y_list=list()
+coor_list=list()
 
 parser = argparse.ArgumentParser(description='Vision-based object detection')
 parser.add_argument('--video_file', type=str, default='camera', help='Video file used for the object detection process')
@@ -43,17 +47,17 @@ z=50
 mouse_coor=[]
 product_list=list()
 
-def mouse_click(event, x, y, flags, param):
-    if event == cv2.EVENT_LBUTTONDOWN:
-        # Save the coordinates when the left mouse button is clicked
-        coor_x,coor_y=x,y
+# def mouse_click(event, x, y, flags, param):
+#     if event == cv2.EVENT_LBUTTONDOWN:
+#         # Save the coordinates when the left mouse button is clicked
+#         coor_x,coor_y=x,y
 
-        u=coor_x-cx
-        v=cy-coor_y
+#         u=coor_x-cx
+#         v=cy-coor_y
 
-        x_global=float((u/f)*z)
-        y_global=float((-v/f)*z)  
-        mouse_coor.append((x_global, y_global))
+#         x_global=float((u/f)*z)
+#         y_global=float((-v/f)*z)  
+#         mouse_coor.append((x_global, y_global))
 
 h_ch1_accumulated = np.zeros((256, 1), dtype=np.float32)
 h_ch2_accumulated = np.zeros((256, 1), dtype=np.float32)
@@ -61,7 +65,7 @@ h_ch3_accumulated = np.zeros((256, 1), dtype=np.float32)
 
 
 cv2.namedWindow('Video sequence',cv2.WINDOW_NORMAL)
-cv2.setMouseCallback('Video sequence', mouse_click)
+# cv2.setMouseCallback('Video sequence', mouse_click)
 
 #Save the drawn rectangles
 rectangles=[]
@@ -88,10 +92,10 @@ def plot_histogram(frame_used,Xinit,Yinit,Xfin,Yfin):
 
 
 def get_cross_product(list_of_object_coordinates):
-    mouse_coor=list_of_object_coordinates
-    for i in range(1, len(mouse_coor)):
+    coordinates_being_detected=list_of_object_coordinates
+    for i in range(1, len(list_of_object_coordinates)):
         # Compute the cross product of the two consecutive elements
-        cross_product = np.cross(mouse_coor[i - 1], mouse_coor[i])
+        cross_product = np.cross(coordinates_being_detected[i - 1], coordinates_being_detected[i])
         product_list.append(cross_product)
 
     # Convert the array elements to floats and store them in a separate list
@@ -142,6 +146,28 @@ def apply_median_filter(frame,kernel):
 num_processes = cpu_count()
 pool = Pool(num_processes)
 
+
+def get_real_coordinates(x_obtained,y_obtained):
+        #Function that calculated the real coordinates
+        coor_x,coor_y=x_obtained,y_obtained
+
+        u=coor_x-cx
+        v=cy-coor_y
+
+        x_global=float((u/f)*z)
+        y_global=float((-v/f)*z)  
+        z_global=50
+
+        coor_list.append((x_global,y_global))
+
+
+
+def get_acumulated_coordinates(x_global,y_global):
+    #appending coordinate values
+    x_list.append(x_global)
+    y_list.append(y_global)
+   
+    return x_list,y_list
 
 while(cap.isOpened()):
 
@@ -214,12 +240,16 @@ while(cap.isOpened()):
     #Defined area for objects
     for contour in contours:
         area=cv2.contourArea(contour)
-        if area>5:
+        if area>2:
             x, y, w, h = cv2.boundingRect(contour)
             detected_objects.append((x, y, w, h))
 
     for x, y, w, h in detected_objects:
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1)
+
+        get_real_coordinates(x,y)
+
+        # print(coor_list)
 
     #creating rectangles by coordinates.
     for rect in rectangles:
@@ -236,14 +266,6 @@ while(cap.isOpened()):
 
     # Visualise the input video
     cv2.imshow('Video sequence',frame)
-    #cv2.imshow('mask',mask)
-    # cv2.imshow('mask',mask)
-    # cv2.imshow('green_area',result2)
-    # cv2.imshow('white lines',LINEAS_BLANCAS)
-    #cv2.imshow('LAB_FRAME',LAB_FRAME)
-    #cv2.imshow('LUB_FRAME',LUV_FRAME)
-    #cv2.imshow('hsv_FRAME',HSV_FRAME)
-
 
     # The program finishes if the key 'q' is pressed
     key = cv2.waitKey(1)
@@ -254,7 +276,7 @@ while(cap.isOpened()):
 # Destroy all visualisation windows
 cv2.destroyAllWindows()
 
-object_crossing, cross_product_values=get_cross_product(mouse_coor)
+object_crossing, cross_product_values=get_cross_product(coor_list)
 
 # Print the cross product values
 print(cross_product_values)
@@ -264,16 +286,6 @@ print('Ball crossed:', object_crossing, ' times')
 
 # Destroy 'VideoCapture' object
 cap.release()
-# plt.figure(num=1)
-# plt.plot(h_ch1_accumulated,color='red')
-# plt.plot(h_ch2_accumulated,color='green')
-# plt.plot(h_ch3_accumulated,color='blue') 
-# plt.xlim([0, 256])
-# plt.title('Histogram')
-# plt.xlabel('Pixel Value')
-# plt.ylabel('Frequency')
-# plt.legend(['H','S','V'])
-# plt.show()
 
 end_time = time.time()
 
