@@ -286,6 +286,16 @@ print('Ball crossed:', object_crossing, ' times')
 
 # Destroy 'VideoCapture' object
 cap.release()
+plt.figure(num=1)
+plt.plot(h_ch1_accumulated,color='red')
+plt.plot(h_ch2_accumulated,color='green')
+plt.plot(h_ch3_accumulated,color='blue') 
+plt.xlim([0, 256])
+plt.title('Histogram')
+plt.xlabel('Pixel Value')
+plt.ylabel('Frequency')
+plt.legend(['H','S','V'])
+plt.show()
 
 end_time = time.time()
 
