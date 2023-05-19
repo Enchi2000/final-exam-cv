@@ -27,6 +27,11 @@ displacement_vector = np.array(end_point) - np.array(start_point)
 # Calculate the incremental vector for each frame
 incremental_vector = displacement_vector / num_frames
 
+cx=1280
+cy=720
+f=7500
+z=50
+
 
 h_ch1_accumulated = np.zeros((256, 1), dtype=np.float32)
 h_ch2_accumulated = np.zeros((256, 1), dtype=np.float32)
@@ -85,6 +90,19 @@ def apply_median_filter(frame):
     filtered_frame=cv2.medianBlur(frame,3)
     return filtered_frame
 
+def get_real_coordinates(x_obtained,y_obtained):
+        #Function that calculated the real coordinates
+        coor_x,coor_y=x_obtained,y_obtained
+
+        u=coor_x-cx
+        v=cy-coor_y
+
+        x_global=float((u/f)*z)
+        y_global=float((-v/f)*z)  
+        z_global=50
+
+        return x_global,y_global,z_global
+    
 
 parser = argparse.ArgumentParser(description='Vision-based object detection')
 parser.add_argument('--video_file', type=str, default='camera', help='Video file used for the object detection process')
