@@ -4,8 +4,6 @@
 #    'python main.py --video_file  ../../2023_05_05_14_59_37-ball-detection.mp4'
 # ----------------------------------------------------------------
 
-
-
 import numpy as np
 import cv2
 import argparse
@@ -211,9 +209,9 @@ while(cap.isOpened()):
     # Visualise the input video
     cv2.imshow('Video sequence',frame)
     #cv2.imshow('mask',mask)
-    cv2.imshow('mask',mask)
-    cv2.imshow('green_area',result2)
-    cv2.imshow('white lines',LINEAS_BLANCAS)
+    # cv2.imshow('mask',mask)
+    # cv2.imshow('green_area',result2)
+    # cv2.imshow('white lines',LINEAS_BLANCAS)
     #cv2.imshow('LAB_FRAME',LAB_FRAME)
     #cv2.imshow('LUB_FRAME',LUV_FRAME)
     #cv2.imshow('hsv_FRAME',HSV_FRAME)
@@ -230,16 +228,16 @@ cv2.destroyAllWindows()
 
 # Destroy 'VideoCapture' object
 cap.release()
-plt.figure(num=1)
-plt.plot(h_ch1_accumulated,color='red')
-plt.plot(h_ch2_accumulated,color='green')
-plt.plot(h_ch3_accumulated,color='blue') 
-plt.xlim([0, 256])
-plt.title('Histogram')
-plt.xlabel('Pixel Value')
-plt.ylabel('Frequency')
-plt.legend(['H','S','V'])
-plt.show()
+# plt.figure(num=1)
+# plt.plot(h_ch1_accumulated,color='red')
+# plt.plot(h_ch2_accumulated,color='green')
+# plt.plot(h_ch3_accumulated,color='blue') 
+# plt.xlim([0, 256])
+# plt.title('Histogram')
+# plt.xlabel('Pixel Value')
+# plt.ylabel('Frequency')
+# plt.legend(['H','S','V'])
+# plt.show()
 
 end_time = time.time()
 
