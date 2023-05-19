@@ -43,6 +43,7 @@ f=7500
 z=50
 
 mouse_coor=[]
+product_list=list()
 
 def mouse_click(event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDOWN:
@@ -87,6 +88,27 @@ def plot_histogram(frame_used,Xinit,Yinit,Xfin,Yfin):
 
     return hist_channel_1,hist_channel_2,hist_channel_3
 
+
+def get_cross_product(list_of_object_coordinates):
+    mouse_coor=list_of_object_coordinates
+    for i in range(1, len(mouse_coor)):
+        # Compute the cross product of the two consecutive elements
+        cross_product = np.cross(mouse_coor[i - 1], mouse_coor[i])
+        product_list.append(cross_product)
+
+    # Convert the array elements to floats and store them in a separate list
+    cross_product_values = [float(item) for item in product_list]
+
+    # Check for sign changes in the cross product values
+    sign_changes = 0
+
+    for i in range(1, len(cross_product_values)):
+        if (cross_product_values[i - 1] >= 0 and cross_product_values[i] < 0) or (cross_product_values[i - 1] <= 0 and cross_product_values[i] > 0):
+            # Sign change detected
+            sign_changes += 1
+    
+    return sign_changes,cross_product_values
+
 def get_rectangle(event,x,y,flags,params):
     global x_init, y_init, drawing, top_left_pt, bottom_right_pt
     
@@ -123,10 +145,7 @@ num_processes = cpu_count()
 pool = Pool(num_processes)
 
 
-
 while(cap.isOpened()):
-
-    
 
     #Got the current frame and pass on to 'frame'
     ret,frame=cap.read()
@@ -156,6 +175,7 @@ while(cap.isOpened()):
     LUV_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2LUV)
     LAB_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2LAB)
     GRAY_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGRA2GRAY)
+
     #RGB ranges for area close to the goal
     result=cv2.inRange(RGB_FRAME,(112,141,100),(154,180,141)) #Noise1q
     #LUV ranges defined
@@ -219,19 +239,6 @@ while(cap.isOpened()):
         h_ch3_accumulated=h_ch3_accumulated+h_3
 
 
-
-    
-
-    sign_changes = 0
-
-    # Iterate over the array elements
-    for i in range(1, len(mouse_coor)):
-        if (mouse_coor[i-1][0] >= 0 and mouse_coor[i][0] < 0) or (mouse_coor[i-1][0] <= 0 and mouse_coor[i][0] > 0):
-            # Sign change detected
-            sign_changes += 1
-
-
-
     # Visualise the input video
     cv2.imshow('Video sequence',frame)
 
@@ -246,22 +253,16 @@ while(cap.isOpened()):
 # Destroy all visualisation windows
 cv2.destroyAllWindows()
 
-print(mouse_coor)
-print('Sign changes: ',sign_changes)
+object_crossing, cross_product_values=get_cross_product(mouse_coor)
+
+# Print the cross product values
+print(cross_product_values)
+
+# Print the number of sign changes
+print('Ball crossed:', object_crossing, ' times')
 
 # Destroy 'VideoCapture' object
 cap.release()
-# plt.figure(num=1)
-# plt.plot(h_ch1_accumulated,color='red')
-# plt.plot(h_ch2_accumulated,color='green')
-# plt.plot(h_ch3_accumulated,color='blue') 
-# plt.xlim([0, 256])
-# plt.title('Histogram')
-# plt.xlabel('Pixel Value')
-# plt.ylabel('Frequency')
-# # plt.legend(['H','S','V'])
-# plt.legend(['L','U','V'])
-# plt.show()
 
 
 end_time = time.time()
@@ -269,5 +270,6 @@ end_time = time.time()
 total_time = end_time - start_time
 print(f'Total time taken: {total_time:.2f} seconds')
 
+    
     
 
