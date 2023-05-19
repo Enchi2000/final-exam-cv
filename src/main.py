@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------
-
+# 
 # copy line to run:
 #    'python main.py --video_file  ../../2023_05_05_14_59_37-ball-detection.mp4'
 # ----------------------------------------------------------------
@@ -14,6 +14,8 @@ import time
 import matplotlib.pyplot as plt
 
 start_time = time.time()
+
+
 
 h_ch1_accumulated = np.zeros((256, 1), dtype=np.float32)
 h_ch2_accumulated = np.zeros((256, 1), dtype=np.float32)
@@ -157,7 +159,7 @@ while(cap.isOpened()):
             x, y, w, h = cv2.boundingRect(contour)
             detected_objects.append((x, y, w, h))
 
-    #for x, y, w, h in detected_objects:
+    # for x, y, w, h in detected_objects:
     #    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1)
 
     #creating rectangles by coordinates.
@@ -165,7 +167,7 @@ while(cap.isOpened()):
         cv2.rectangle(frame, (rect[0], rect[1]), (rect[2], rect[3]), color=(0, 255, 0), thickness=1)
 
         #Create 3 histograms for each R,G,B space color in the region selected        
-        h_1,h_2,h_3=plot_histogram(HSV_FRAME,rect[0], rect[1], rect[2], rect[3])
+        h_1,h_2,h_3=plot_histogram(LAB_FRAME,rect[0], rect[1], rect[2], rect[3])
 
         #The intensity values of R,G,B accumulated in histograms 
         h_ch1_accumulated=h_ch1_accumulated+h_1
@@ -175,8 +177,8 @@ while(cap.isOpened()):
 
     # Visualise the input video
     cv2.imshow('Video sequence',frame)
-    cv2.imshow('final',final)
-    cv2.imshow('mask',mask)
+    # cv2.imshow('final',final)
+    # cv2.imshow('mask',mask)
     # # cv2.imshow('LINEAROJA',RGB_LINEA_ROJA)
     # cv2.imshow('HSV',HSV_UNFILTERED)
     # cv2.imshow('HLS',HLS_FRAME)
@@ -204,7 +206,8 @@ plt.xlim([0, 256])
 plt.title('Histogram')
 plt.xlabel('Pixel Value')
 plt.ylabel('Frequency')
-plt.legend(['H','S','V'])
+# plt.legend(['H','S','V'])
+plt.legend(['L','A','B'])
 plt.show()
 
 end_time = time.time()
