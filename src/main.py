@@ -105,10 +105,9 @@ while(cap.isOpened()):
 
     #Apply space colors to the video and filtered video.
     RGB_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
-    HSV_FRAME=cv2.cvtColor(filtered_frame.get(),cv2.COLOR_BGR2HSV_FULL)
-    HSV_UNFILTERED=cv2.cvtColor(frame,cv2.COLOR_BGR2HSV_FULL)
+    HSV_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2HSV_FULL)
     HLS_FRAME=cv2.cvtColor(filtered_frame.get(),cv2.COLOR_BGR2HLS_FULL)
-    LUV_FRAME=cv2.cvtColor(filtered_frame.get(),cv2.COLOR_BGR2LUV)
+    LUV_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2LUV)
     LAB_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2LAB)
     GRAY_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGRA2GRAY)
 
@@ -116,38 +115,43 @@ while(cap.isOpened()):
     result=cv2.inRange(RGB_FRAME,(112,141,100),(154,180,141)) #Noise1q
 
     #LUV ranges defined
+    LUV_SOMBRAS_LINEAS_BLANCAS=cv2.inRange(LUV_FRAME,(80,90,128),(120,96,138))
+    cv2.imshow('LINEAS_BLANCAS_SOMBRAS',LUV_SOMBRAS_LINEAS_BLANCAS)
+
     LUV_SOMBRAS=cv2.inRange(LUV_FRAME,(10,84,121),(49,99,163))
     #Lamp light only Shadows reflected 
-    LUV_SOMBRAS_MENORES=cv2.inRange(LUV_FRAME,(67,84,147),(131,90,160))
-    #Lamppost shadow complete reflected
-    LUV_SOMBRAS_MENORES2=cv2.inRange(LUV_FRAME,(120,86.7,151),(160,93,161))
+    LAB_SOMBRAS_MENORES=cv2.inRange(LAB_FRAME,(50,108,131),(125,128,149))
+    cv2.imshow('LAB_SOMBRAS_PELOTAS',LAB_SOMBRAS_MENORES)
 
-    #Irrelevant for the moment
-    # RGB_LINEA_ROJA=cv2.inRange(HSV_FRAME,(30,32,171),(51,45,197))
 
     #White lines detected (edges)
     LINEAS_BLANCAS=cv2.inRange(LAB_FRAME,(214,113,131),(255,125,142))
-
-    #Combined to merge two white regions 
-    result1=cv2.bitwise_or(LUV_SOMBRAS_MENORES2,LUV_SOMBRAS_MENORES)
+    cv2.imshow('Lineas blancas',LINEAS_BLANCAS)
 
     #Court area segmented
-    result2=cv2.inRange(HSV_FRAME,(52,28,159),(79,69,226)) #Green area
+    result2=cv2.inRange(HSV_FRAME,(40,19,100),(100,95,226)) #Green area
 
     #Court fence and goal region white
     final=cv2.bitwise_or(result,LUV_SOMBRAS)
 
+    Inside_Boundaries=cv2.bitwise_or(result2,LUV_SOMBRAS)
+    cv2.imshow('inside boundaries',Inside_Boundaries)
+
+    SHADOW_PERSONS=cv2.inRange(LAB_FRAME,(32,109,131),(110,129,150))
+    cv2.imshow('SHADOW_PERSONS',SHADOW_PERSONS)
 
     mask_fence_goal=cv2.bitwise_or(final,result2)
-    mask_shadows_fence_goal=cv2.bitwise_or(mask_fence_goal,result1)
+    mask_shadows_fence_goal=cv2.bitwise_or(mask_fence_goal,LAB_SOMBRAS_MENORES)
+    mask_shadows_persons=cv2.bitwise_or(mask_shadows_fence_goal,SHADOW_PERSONS)
     #Mask of fence, shadows, goal region and white lines
     mask=cv2.bitwise_or(mask_shadows_fence_goal,LINEAS_BLANCAS)
-
-
-    contours,hierarchy  = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
+    mask=cv2.bitwise_or(mask,LUV_SOMBRAS_LINEAS_BLANCAS)
+    
+    final_mask=pool.apply_async(apply_median_filter,[mask])
+    contours,hierarchy  = cv2.findContours(final_mask.get(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cv2.imshow('final_mask',final_mask.get())
     #Applying mask filter
-    final=cv2.bitwise_and(frame,frame,mask=mask)
+    final=cv2.bitwise_and(frame,frame,mask=final_mask.get())
     
     #array to storage the coordinates
     detected_objects = []
@@ -155,11 +159,11 @@ while(cap.isOpened()):
     #Defined area for objects
     for contour in contours:
         area=cv2.contourArea(contour)
-        if area<70 and area>20:
+        if area<70 and area>5:
             x, y, w, h = cv2.boundingRect(contour)
             detected_objects.append((x, y, w, h))
 
-    # for x, y, w, h in detected_objects:
+    #for x, y, w, h in detected_objects:
     #    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1)
 
     #creating rectangles by coordinates.
@@ -167,7 +171,7 @@ while(cap.isOpened()):
         cv2.rectangle(frame, (rect[0], rect[1]), (rect[2], rect[3]), color=(0, 255, 0), thickness=1)
 
         #Create 3 histograms for each R,G,B space color in the region selected        
-        h_1,h_2,h_3=plot_histogram(LAB_FRAME,rect[0], rect[1], rect[2], rect[3])
+        h_1,h_2,h_3=plot_histogram(LUV_FRAME,rect[0], rect[1], rect[2], rect[3])
 
         #The intensity values of R,G,B accumulated in histograms 
         h_ch1_accumulated=h_ch1_accumulated+h_1
@@ -177,13 +181,12 @@ while(cap.isOpened()):
 
     # Visualise the input video
     cv2.imshow('Video sequence',frame)
-    # cv2.imshow('final',final)
-    # cv2.imshow('mask',mask)
-    # # cv2.imshow('LINEAROJA',RGB_LINEA_ROJA)
-    # cv2.imshow('HSV',HSV_UNFILTERED)
-    # cv2.imshow('HLS',HLS_FRAME)
-    # cv2.imshow('LUV',LUV_FRAME)
-    # cv2.imshow('LAB',LAB_FRAME) 
+    cv2.imshow('HSV',HSV_FRAME)
+    cv2.imshow('mask',mask)
+    cv2.imshow('HSV_boundaries',result2)
+    cv2.imshow('HLS',HLS_FRAME)
+    cv2.imshow('LUV_SOMBRAS',LUV_FRAME)
+    cv2.imshow('LAB',LAB_FRAME) 
     # cv2.imshow('LINEAS_BLANCAS',LINEAS_BLANCAS)
 
 
@@ -207,7 +210,7 @@ plt.title('Histogram')
 plt.xlabel('Pixel Value')
 plt.ylabel('Frequency')
 # plt.legend(['H','S','V'])
-plt.legend(['L','A','B'])
+plt.legend(['L','U','V'])
 plt.show()
 
 end_time = time.time()
