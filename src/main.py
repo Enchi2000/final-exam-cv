@@ -15,6 +15,17 @@ import matplotlib.pyplot as plt
 
 start_time = time.time()
 
+start_point=(617,75)
+end_point=(599,683)
+
+# Number of frames in the video
+num_frames = 3674
+
+# Calculate the displacement vector
+displacement_vector = np.array(end_point) - np.array(start_point)
+
+# Calculate the incremental vector for each frame
+incremental_vector = displacement_vector / num_frames
 
 
 h_ch1_accumulated = np.zeros((256, 1), dtype=np.float32)
@@ -100,6 +111,15 @@ while(cap.isOpened()):
         print("frame missed!")
         break
 
+    # Get the total number of frames
+    num_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+
+    current_position = tuple(np.array(start_point) + (num_frames * incremental_vector).astype(int))
+    cv2.line(frame, start_point, current_position, (0, 0, 255), 2)
+
+    
+
     #Applying a filter asyncronous
     filtered_frame=pool.apply_async(apply_gaussian_filter,[frame])
 
@@ -116,17 +136,17 @@ while(cap.isOpened()):
 
     #LUV ranges defined
     LUV_SOMBRAS_LINEAS_BLANCAS=cv2.inRange(LUV_FRAME,(80,90,128),(120,96,138))
-    cv2.imshow('LINEAS_BLANCAS_SOMBRAS',LUV_SOMBRAS_LINEAS_BLANCAS)
+    # cv2.imshow('LINEAS_BLANCAS_SOMBRAS',LUV_SOMBRAS_LINEAS_BLANCAS)
 
     LUV_SOMBRAS=cv2.inRange(LUV_FRAME,(10,84,121),(49,99,163))
     #Lamp light only Shadows reflected 
     LAB_SOMBRAS_MENORES=cv2.inRange(LAB_FRAME,(50,108,131),(125,128,149))
-    cv2.imshow('LAB_SOMBRAS_PELOTAS',LAB_SOMBRAS_MENORES)
+    # cv2.imshow('LAB_SOMBRAS_PELOTAS',LAB_SOMBRAS_MENORES)
 
 
     #White lines detected (edges)
     LINEAS_BLANCAS=cv2.inRange(LAB_FRAME,(214,113,131),(255,125,142))
-    cv2.imshow('Lineas blancas',LINEAS_BLANCAS)
+    # cv2.imshow('Lineas blancas',LINEAS_BLANCAS)
 
     #Court area segmented
     result2=cv2.inRange(HSV_FRAME,(40,19,100),(100,95,226)) #Green area
@@ -135,10 +155,10 @@ while(cap.isOpened()):
     final=cv2.bitwise_or(result,LUV_SOMBRAS)
 
     Inside_Boundaries=cv2.bitwise_or(result2,LUV_SOMBRAS)
-    cv2.imshow('inside boundaries',Inside_Boundaries)
+    # cv2.imshow('inside boundaries',Inside_Boundaries)
 
     SHADOW_PERSONS=cv2.inRange(LAB_FRAME,(32,109,131),(110,129,150))
-    cv2.imshow('SHADOW_PERSONS',SHADOW_PERSONS)
+    # cv2.imshow('SHADOW_PERSONS',SHADOW_PERSONS)
 
     mask_fence_goal=cv2.bitwise_or(final,result2)
     mask_shadows_fence_goal=cv2.bitwise_or(mask_fence_goal,LAB_SOMBRAS_MENORES)
@@ -163,8 +183,8 @@ while(cap.isOpened()):
             x, y, w, h = cv2.boundingRect(contour)
             detected_objects.append((x, y, w, h))
 
-    #for x, y, w, h in detected_objects:
-    #    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1)
+    for x, y, w, h in detected_objects:
+       cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1)
 
     #creating rectangles by coordinates.
     for rect in rectangles:
@@ -181,12 +201,12 @@ while(cap.isOpened()):
 
     # Visualise the input video
     cv2.imshow('Video sequence',frame)
-    cv2.imshow('HSV',HSV_FRAME)
-    cv2.imshow('mask',mask)
-    cv2.imshow('HSV_boundaries',result2)
-    cv2.imshow('HLS',HLS_FRAME)
-    cv2.imshow('LUV_SOMBRAS',LUV_FRAME)
-    cv2.imshow('LAB',LAB_FRAME) 
+    # cv2.imshow('HSV',HSV_FRAME)
+    # cv2.imshow('mask',mask)
+    # cv2.imshow('HSV_boundaries',result2)
+    # cv2.imshow('HLS',HLS_FRAME)
+    # cv2.imshow('LUV_SOMBRAS',LUV_FRAME)
+    # cv2.imshow('LAB',LAB_FRAME) 
     # cv2.imshow('LINEAS_BLANCAS',LINEAS_BLANCAS)
 
 
