@@ -13,6 +13,13 @@ from multiprocessing import Pool, cpu_count
 import time
 import matplotlib.pyplot as plt
 
+
+
+parser = argparse.ArgumentParser(description='Vision-based object detection')
+parser.add_argument('--video_file', type=str, default='camera', help='Video file used for the object detection process')
+args = parser.parse_args()
+
+
 start_time = time.time()
 
 start_point=(617,75)
@@ -27,15 +34,35 @@ displacement_vector = np.array(end_point) - np.array(start_point)
 # Calculate the incremental vector for each frame
 incremental_vector = displacement_vector / num_frames
 
-cx=1280
-cy=720
+cap=cv2.VideoCapture(args.video_file)
+
+cx=cap.get(3)/2
+cy=cap.get(4)/2
+
 f=7500
 z=50
 
+mouse_coor=[]
+
+def mouse_click(event, x, y, flags, param):
+    if event == cv2.EVENT_LBUTTONDOWN:
+        # Save the coordinates when the left mouse button is clicked
+        coor_x,coor_y=x,y
+
+        u=coor_x-cx
+        v=cy-coor_y
+
+        x_global=float((u/f)*z)
+        y_global=float((-v/f)*z)  
+        mouse_coor.append((x_global, y_global))
 
 h_ch1_accumulated = np.zeros((256, 1), dtype=np.float32)
 h_ch2_accumulated = np.zeros((256, 1), dtype=np.float32)
 h_ch3_accumulated = np.zeros((256, 1), dtype=np.float32)
+
+
+cv2.namedWindow('Video sequence',cv2.WINDOW_NORMAL)
+cv2.setMouseCallback('Video sequence', mouse_click)
 
 #Save the drawn rectangles
 rectangles=[]
@@ -90,36 +117,16 @@ def apply_median_filter(frame):
     filtered_frame=cv2.medianBlur(frame,3)
     return filtered_frame
 
-def get_real_coordinates(x_obtained,y_obtained):
-        #Function that calculated the real coordinates
-        coor_x,coor_y=x_obtained,y_obtained
-
-        u=coor_x-cx
-        v=cy-coor_y
-
-        x_global=float((u/f)*z)
-        y_global=float((-v/f)*z)  
-        z_global=50
-
-        return x_global,y_global,z_global
-    
-
-parser = argparse.ArgumentParser(description='Vision-based object detection')
-parser.add_argument('--video_file', type=str, default='camera', help='Video file used for the object detection process')
-args = parser.parse_args()
-
-cv2.namedWindow('Video sequence',cv2.WINDOW_NORMAL)
-cv2.setMouseCallback('Video sequence', get_rectangle)
 
 #multiprocess
 num_processes = cpu_count()
 pool = Pool(num_processes)
 
 
-cap=cv2.VideoCapture(args.video_file)
-
 
 while(cap.isOpened()):
+
+    
 
     #Got the current frame and pass on to 'frame'
     ret,frame=cap.read()
@@ -129,18 +136,19 @@ while(cap.isOpened()):
         print("frame missed!")
         break
 
+    # for coord in mouse_coor:
+        # cv2.circle(frame, coord, 5, (0, 0, 255), -1)
+
+
     # Get the total number of frames
     num_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
 
     current_position = tuple(np.array(start_point) + (num_frames * incremental_vector).astype(int))
     cv2.line(frame, start_point, current_position, (0, 0, 255), 2)
 
     
-
     #Applying a filter asyncronous
     filtered_frame=pool.apply_async(apply_gaussian_filter,[frame])
-
     #Apply space colors to the video and filtered video.
     RGB_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
     HSV_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2HSV_FULL)
@@ -148,33 +156,27 @@ while(cap.isOpened()):
     LUV_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2LUV)
     LAB_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2LAB)
     GRAY_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGRA2GRAY)
-
     #RGB ranges for area close to the goal
     result=cv2.inRange(RGB_FRAME,(112,141,100),(154,180,141)) #Noise1q
-
     #LUV ranges defined
     LUV_SOMBRAS_LINEAS_BLANCAS=cv2.inRange(LUV_FRAME,(80,90,128),(120,96,138))
     # cv2.imshow('LINEAS_BLANCAS_SOMBRAS',LUV_SOMBRAS_LINEAS_BLANCAS)
-
     LUV_SOMBRAS=cv2.inRange(LUV_FRAME,(10,84,121),(49,99,163))
     #Lamp light only Shadows reflected 
     LAB_SOMBRAS_MENORES=cv2.inRange(LAB_FRAME,(50,108,131),(125,128,149))
     # cv2.imshow('LAB_SOMBRAS_PELOTAS',LAB_SOMBRAS_MENORES)
-
-
     #White lines detected (edges)
     LINEAS_BLANCAS=cv2.inRange(LAB_FRAME,(214,113,131),(255,125,142))
     # cv2.imshow('Lineas blancas',LINEAS_BLANCAS)
-
     #Court area segmented
     result2=cv2.inRange(HSV_FRAME,(40,19,100),(100,95,226)) #Green area
+
 
     #Court fence and goal region white
     final=cv2.bitwise_or(result,LUV_SOMBRAS)
 
     Inside_Boundaries=cv2.bitwise_or(result2,LUV_SOMBRAS)
     # cv2.imshow('inside boundaries',Inside_Boundaries)
-
     SHADOW_PERSONS=cv2.inRange(LAB_FRAME,(32,109,131),(110,129,150))
     # cv2.imshow('SHADOW_PERSONS',SHADOW_PERSONS)
 
@@ -217,15 +219,22 @@ while(cap.isOpened()):
         h_ch3_accumulated=h_ch3_accumulated+h_3
 
 
+
+    
+
+    sign_changes = 0
+
+    # Iterate over the array elements
+    for i in range(1, len(mouse_coor)):
+        if (mouse_coor[i-1][0] >= 0 and mouse_coor[i][0] < 0) or (mouse_coor[i-1][0] <= 0 and mouse_coor[i][0] > 0):
+            # Sign change detected
+            sign_changes += 1
+
+
+
     # Visualise the input video
     cv2.imshow('Video sequence',frame)
-    # cv2.imshow('HSV',HSV_FRAME)
-    # cv2.imshow('mask',mask)
-    # cv2.imshow('HSV_boundaries',result2)
-    # cv2.imshow('HLS',HLS_FRAME)
-    # cv2.imshow('LUV_SOMBRAS',LUV_FRAME)
-    # cv2.imshow('LAB',LAB_FRAME) 
-    # cv2.imshow('LINEAS_BLANCAS',LINEAS_BLANCAS)
+
 
 
     # The program finishes if the key 'q' is pressed
@@ -237,19 +246,23 @@ while(cap.isOpened()):
 # Destroy all visualisation windows
 cv2.destroyAllWindows()
 
+print(mouse_coor)
+print('Sign changes: ',sign_changes)
+
 # Destroy 'VideoCapture' object
 cap.release()
-plt.figure(num=1)
-plt.plot(h_ch1_accumulated,color='red')
-plt.plot(h_ch2_accumulated,color='green')
-plt.plot(h_ch3_accumulated,color='blue') 
-plt.xlim([0, 256])
-plt.title('Histogram')
-plt.xlabel('Pixel Value')
-plt.ylabel('Frequency')
-# plt.legend(['H','S','V'])
-plt.legend(['L','U','V'])
-plt.show()
+# plt.figure(num=1)
+# plt.plot(h_ch1_accumulated,color='red')
+# plt.plot(h_ch2_accumulated,color='green')
+# plt.plot(h_ch3_accumulated,color='blue') 
+# plt.xlim([0, 256])
+# plt.title('Histogram')
+# plt.xlabel('Pixel Value')
+# plt.ylabel('Frequency')
+# # plt.legend(['H','S','V'])
+# plt.legend(['L','U','V'])
+# plt.show()
+
 
 end_time = time.time()
 
