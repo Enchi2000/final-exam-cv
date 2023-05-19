@@ -4,8 +4,6 @@
 #    'python main.py --video_file  ../../2023_05_05_14_59_37-ball-detection.mp4'
 # ----------------------------------------------------------------
 
-
-
 import numpy as np
 import cv2
 import argparse
@@ -130,13 +128,13 @@ def get_rectangle(event,x,y,flags,params):
         drawing = False
         rectangles.append((x_init, y_init, x, y)) 
         
-def apply_gaussian_filter(frame):
+def apply_gaussian_filter(frame,kernel,sigma):
     # Apply a Gaussian filter with a kernel size of 5x5 and sigma value of 1
-    filtered_frame = cv2.GaussianBlur(frame, (7, 7), 5)
+    filtered_frame = cv2.GaussianBlur(frame, (kernel, kernel), sigma)
     return filtered_frame
 
-def apply_median_filter(frame):
-    filtered_frame=cv2.medianBlur(frame,3)
+def apply_median_filter(frame,kernel):
+    filtered_frame=cv2.medianBlur(frame,kernel)
     return filtered_frame
 
 
@@ -167,71 +165,68 @@ while(cap.isOpened()):
 
     
     #Applying a filter asyncronous
-    filtered_frame=pool.apply_async(apply_gaussian_filter,[frame])
+    filtered_frame=pool.apply_async(apply_gaussian_filter,[frame,5,3])
+
     #Apply space colors to the video and filtered video.
     RGB_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
-    HSV_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2HSV_FULL)
-    HLS_FRAME=cv2.cvtColor(filtered_frame.get(),cv2.COLOR_BGR2HLS_FULL)
-    LUV_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2LUV)
+    HSV_FRAME=cv2.cvtColor(filtered_frame.get(),cv2.COLOR_BGR2HSV_FULL)
+    LUV_FRAME=cv2.cvtColor(filtered_frame.get(),cv2.COLOR_BGR2LUV)
     LAB_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGR2LAB)
-    GRAY_FRAME=cv2.cvtColor(frame,cv2.COLOR_BGRA2GRAY)
+    gray=cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+    boundaries = np.zeros_like(gray)
+    kernel = np.ones((5, 5), np.uint8)
 
-    #RGB ranges for area close to the goal
-    result=cv2.inRange(RGB_FRAME,(112,141,100),(154,180,141)) #Noise1q
-    #LUV ranges defined
-    LUV_SOMBRAS_LINEAS_BLANCAS=cv2.inRange(LUV_FRAME,(80,90,128),(120,96,138))
-    # cv2.imshow('LINEAS_BLANCAS_SOMBRAS',LUV_SOMBRAS_LINEAS_BLANCAS)
-    LUV_SOMBRAS=cv2.inRange(LUV_FRAME,(10,84,121),(49,99,163))
-    #Lamp light only Shadows reflected 
-    LAB_SOMBRAS_MENORES=cv2.inRange(LAB_FRAME,(50,108,131),(125,128,149))
-    # cv2.imshow('LAB_SOMBRAS_PELOTAS',LAB_SOMBRAS_MENORES)
+    LAB_SOMBRAS=cv2.inRange(LAB_FRAME,(59,109,133),(100,117,148))
+
+#---------Court area segmented------------------------------
+    result2=cv2.inRange(HSV_FRAME,(45,16,117),(101,91,229)) #Green area
+    radius = 5  # Radius of the circular kernel
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * radius + 1, 2 * radius + 1))
+    result2 = cv2.erode(result2, kernel, iterations=1)
+#------------------------------------------------------
+    contours,hierarchy  = cv2.findContours(result2, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)[:3]
+    cv2.drawContours(boundaries,contours,-1,(255,255,255),cv2.FILLED)
+    boundaries=cv2.bitwise_not(boundaries)
+    cv2.imshow('mask1',boundaries)
+    red_lines=cv2.bitwise_or(boundaries,result2)
+    cv2.imshow("red_lines",red_lines)
+
+#------------------------------------------------------
     #White lines detected (edges)
-    LINEAS_BLANCAS=cv2.inRange(LAB_FRAME,(214,113,131),(255,125,142))
-    # cv2.imshow('Lineas blancas',LINEAS_BLANCAS)
-    #Court area segmented
-    result2=cv2.inRange(HSV_FRAME,(40,19,100),(100,95,226)) #Green area
+    kernel = np.ones((5, 5), np.uint8)
+    LINEAS_BLANCAS=cv2.inRange(HSV_FRAME,(40,12,203),(75,36,234))
+    LINEAS_BLANCAS=cv2.dilate(LINEAS_BLANCAS,kernel,iterations=2)
+    mask=cv2.bitwise_or(LINEAS_BLANCAS,red_lines)
 
+#--------------------------------------------------------------------
 
-    #Court fence and goal region white
-    final=cv2.bitwise_or(result,LUV_SOMBRAS)
+    mask=cv2.bitwise_not(mask)
 
-    Inside_Boundaries=cv2.bitwise_or(result2,LUV_SOMBRAS)
-    # cv2.imshow('inside boundaries',Inside_Boundaries)
-    SHADOW_PERSONS=cv2.inRange(LAB_FRAME,(32,109,131),(110,129,150))
-    # cv2.imshow('SHADOW_PERSONS',SHADOW_PERSONS)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * radius + 1, 2 * radius + 1))
+    mask=cv2.dilate(mask,kernel,iterations=1)
 
-    mask_fence_goal=cv2.bitwise_or(final,result2)
-    mask_shadows_fence_goal=cv2.bitwise_or(mask_fence_goal,LAB_SOMBRAS_MENORES)
-    mask_shadows_persons=cv2.bitwise_or(mask_shadows_fence_goal,SHADOW_PERSONS)
-    #Mask of fence, shadows, goal region and white lines
-    mask=cv2.bitwise_or(mask_shadows_fence_goal,LINEAS_BLANCAS)
-    mask=cv2.bitwise_or(mask,LUV_SOMBRAS_LINEAS_BLANCAS)
-    
-    final_mask=pool.apply_async(apply_median_filter,[mask])
-    contours,hierarchy  = cv2.findContours(final_mask.get(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    cv2.imshow('final_mask',final_mask.get())
-    #Applying mask filter
-    final=cv2.bitwise_and(frame,frame,mask=final_mask.get())
-    
-    #array to storage the coordinates
+    contours,hierarchy  = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    # #array to storage the coordinates
     detected_objects = []
 
     #Defined area for objects
     for contour in contours:
         area=cv2.contourArea(contour)
-        if area<70 and area>5:
+        if area>5:
             x, y, w, h = cv2.boundingRect(contour)
             detected_objects.append((x, y, w, h))
 
     for x, y, w, h in detected_objects:
-       cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1)
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1)
 
     #creating rectangles by coordinates.
     for rect in rectangles:
         cv2.rectangle(frame, (rect[0], rect[1]), (rect[2], rect[3]), color=(0, 255, 0), thickness=1)
 
         #Create 3 histograms for each R,G,B space color in the region selected        
-        h_1,h_2,h_3=plot_histogram(LUV_FRAME,rect[0], rect[1], rect[2], rect[3])
+        h_1,h_2,h_3=plot_histogram(HSV_FRAME,rect[0], rect[1], rect[2], rect[3])
 
         #The intensity values of R,G,B accumulated in histograms 
         h_ch1_accumulated=h_ch1_accumulated+h_1
@@ -241,7 +236,13 @@ while(cap.isOpened()):
 
     # Visualise the input video
     cv2.imshow('Video sequence',frame)
-
+    #cv2.imshow('mask',mask)
+    # cv2.imshow('mask',mask)
+    # cv2.imshow('green_area',result2)
+    # cv2.imshow('white lines',LINEAS_BLANCAS)
+    #cv2.imshow('LAB_FRAME',LAB_FRAME)
+    #cv2.imshow('LUB_FRAME',LUV_FRAME)
+    #cv2.imshow('hsv_FRAME',HSV_FRAME)
 
 
     # The program finishes if the key 'q' is pressed
@@ -263,7 +264,16 @@ print('Ball crossed:', object_crossing, ' times')
 
 # Destroy 'VideoCapture' object
 cap.release()
-
+# plt.figure(num=1)
+# plt.plot(h_ch1_accumulated,color='red')
+# plt.plot(h_ch2_accumulated,color='green')
+# plt.plot(h_ch3_accumulated,color='blue') 
+# plt.xlim([0, 256])
+# plt.title('Histogram')
+# plt.xlabel('Pixel Value')
+# plt.ylabel('Frequency')
+# plt.legend(['H','S','V'])
+# plt.show()
 
 end_time = time.time()
 
